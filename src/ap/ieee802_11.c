@@ -2667,6 +2667,9 @@ int ieee802_11_mgmt(struct hostapd_data *hapd, const u8 *buf, size_t len,
 		return 1;
 	}
 
+    if (stype == WLAN_FC_STYPE_ASSOC_REQ)
+        handle_assoc_req(hapd, mgmt, len, fi->ssi_signal);
+
 	if (os_memcmp(mgmt->da, hapd->own_addr, ETH_ALEN) != 0) {
 		hostapd_logger(hapd, mgmt->sa, HOSTAPD_MODULE_IEEE80211,
 			       HOSTAPD_LEVEL_DEBUG,

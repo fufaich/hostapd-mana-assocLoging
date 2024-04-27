@@ -2169,6 +2169,17 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 		fclose(f);
 		conf->mana_outfile = tmp;
 		wpa_printf(MSG_INFO, "MANA: Observed activity will be written to. File %s set.",tmp);
+    } else if (os_strcmp(buf, "mana_outfile_assoc") == 0) {
+        char *tmp = malloc(strlen(pos)+1);
+        strcpy(tmp,pos);
+        FILE *f = fopen(pos, "a");
+        if (!f) {
+            wpa_printf(MSG_ERROR, "MANA: Line %d: Failed to open activity file '%s'", line, pos);
+            return 1;
+        }
+        fclose(f);
+        conf->mana_outfile_assoc = tmp;
+        wpa_printf(MSG_INFO, "MANA: Observed activity will be written to. File %s set.",tmp);
 	} else if (os_strcmp(buf, "mana_ssid_filter_file") == 0) {
 		char *tmp1 = malloc(strlen(pos)+1);
 		strcpy(tmp1,pos);
