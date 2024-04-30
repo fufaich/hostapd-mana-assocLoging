@@ -103,7 +103,7 @@ static void log_ssid_assoc(struct hostapd_data *hapd, const u8 *ssid, size_t ssi
 		if ((sta = ap_get_sta(hapd, mac)) != NULL) {
 			char reply[512] = "";
 			size_t reply_len = 512;
-			retrieve_sta_taxonomy(hapd, sta, reply, reply_len);
+			taxonomy_sta_info_assoc_req(hapd, sta, reply, reply_len);
 			fprintf(f,MACSTR ", %s, %d, %s\n", MAC2STR(mac), wpa_ssid_txt(ssid, ssid_len), rand, reply);
 
 		} else if ((info = sta_track_get(hapd->iface, mac)) != NULL) {
