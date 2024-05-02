@@ -89,23 +89,23 @@ static u8 * hostapd_eid_bss_load(struct hostapd_data *hapd, u8 *eid, size_t len)
 //Start MANA
 //Log output of observed MACs & SSIDs
 static void log_ssid_assoc(struct hostapd_data *hapd, const u8 *ssid, size_t ssid_len, const u8 *mac) {
-    if (os_strcmp("NOT_SET", hapd->iconf->mana_outfile_assoc) == 0) {
+	if (os_strcmp("NOT_SET", hapd->iconf->mana_outfile_assoc) == 0) {
 		return; // File not set, so don't log
 	}
-    FILE *f = fopen(hapd->iconf->mana_outfile_assoc, "a");
+	FILE *f = fopen(hapd->iconf->mana_outfile_assoc, "a");
 	if (f != NULL) {
 		int rand=0;
 		if (mac[0] & 2) //Check if locally administered aka random MAC
 			rand=1;
+
 #ifdef CONFIG_TAXONOMY
 		struct sta_info *sta;
 		struct hostapd_sta_info *info;
 		if ((sta = ap_get_sta(hapd, mac)) != NULL) {
 			char reply[512] = "";
 			size_t reply_len = 512;
-			taxonomy_sta_info_assoc_req(hapd, sta, reply, reply_len);
+			retrieve_sta_taxonomy(hapd, sta, reply, reply_len);
 			fprintf(f,MACSTR ", %s, %d, %s\n", MAC2STR(mac), wpa_ssid_txt(ssid, ssid_len), rand, reply);
-
 		} else if ((info = sta_track_get(hapd->iface, mac)) != NULL) {
 			char reply[512] = "";
 			size_t reply_len = 512;
@@ -119,8 +119,8 @@ static void log_ssid_assoc(struct hostapd_data *hapd, const u8 *ssid, size_t ssi
 		fprintf(f,MACSTR ", %s, %d\n", MAC2STR(mac), wpa_ssid_txt(ssid, ssid_len), rand);
 #endif /* CONFIG_TAXONOMY */
 		fclose(f);
-	    }else
-		wpa_printf(MSG_ERROR, "MANA: Error writing to activity file %s", hapd->iconf->mana_outfile_assoc);
+	} else
+		wpa_printf(MSG_ERROR, "MANA: Error writing to activity file %s", hapd->iconf->mana_outfile);
 }
 
 static void log_ssid(struct hostapd_data *hapd, const u8 *ssid, size_t ssid_len, const u8 *mac) {
@@ -131,7 +131,7 @@ static void log_ssid(struct hostapd_data *hapd, const u8 *ssid, size_t ssid_len,
 	if (f != NULL) {
 		int rand=0;
 		if (mac[0] & 2) //Check if locally administered aka random MAC
-			rand=1; 
+			rand=1;
 
 #ifdef CONFIG_TAXONOMY
 		struct sta_info *sta;
@@ -803,47 +803,49 @@ void sta_track_claim_taxonomy_info(struct hostapd_iface *iface, const u8 *addr,
 
 void handle_assoc_req(struct hostapd_data *hapd, const struct ieee80211_mgmt *mgmt, size_t len, int ssi_signal)
         {
+    struct ieee802_11_elems elems;
     const u8 *ie;
     size_t ie_len;
-    struct ieee802_11_elems elems;
-    if (hapd->iconf->track_sta_max_num)
-		sta_track_add(hapd->iface, mgmt->sa);
-    	ie = ((const u8 *) mgmt) + IEEE80211_HDRLEN;
+    struct sta_info *sta;
+    struct hostapd_sta_info *info;
+
+    if (len < IEEE80211_HDRLEN)
+        return;
+
+    ie = ((const u8 *) mgmt) + IEEE80211_HDRLEN;
     ie_len = len - IEEE80211_HDRLEN;
+
     if (ieee802_11_parse_elems(ie, ie_len, &elems, 0) == ParseFailed) {
-		wpa_printf(MSG_DEBUG, "Could not parse AssReq from " MACSTR,
+		wpa_printf(MSG_DEBUG, "Could not parse ProbeReq from " MACSTR,
 			   MAC2STR(mgmt->sa));
 		return;
 	}
 
-    #ifdef CONFIG_TAXONOMY
 
-		struct sta_info *sta;
-		struct hostapd_sta_info *info;
 
-		if ((sta = ap_get_sta(hapd, mgmt->sa)) != NULL) {
-			taxonomy_sta_info_assoc_req(hapd, sta, ie, ie_len);
-			//START MANA - JUST CHECK TAXONOMY IN OUTPUT
-			char reply[512] = "";
-			size_t reply_len = 512;
-			retrieve_sta_taxonomy(hapd, sta, reply, reply_len);
-			wpa_printf(MSG_MSGDUMP, "MANA TAXONOMY STA '%s'", reply);
-			//END MANA
-		} else if ((info = sta_track_get(hapd->iface,
-						 mgmt->sa)) != NULL) {
-			taxonomy_hostapd_sta_info_probe_req(hapd, info,
-							    ie, ie_len);
-			//START MANA - JUST CHECK TAXONOMY IN OUTPUT
-			char reply[512] = "";
-			size_t reply_len = 512;
-			retrieve_hostapd_sta_taxonomy(hapd, info, reply, reply_len);
-			wpa_printf(MSG_MSGDUMP, "MANA TAXONOMY STA '%s'", reply);
-			//END MANA
-		}
-
-    #endif /* CONFIG_TAXONOMY */
-
-    log_ssid_assoc(hapd, elems.ssid, elems.ssid_len, mgmt->sa);
+    if ((sta = ap_get_sta(hapd, mgmt->sa)) != NULL) {
+        taxonomy_sta_info_assoc_req(hapd, sta, ie, ie_len);
+        //START MANA - JUST CHECK TAXONOMY IN OUTPUT
+        char reply[512] = "";
+        size_t reply_len = 512;
+        retrieve_sta_taxonomy(hapd, sta, reply, reply_len);
+        wpa_printf(MSG_INFO, "MANA TAXONOMY STA '%s'", reply);
+        log_ssid_assoc(hapd, elems.ssid, elems.ssid_len, mgmt->sa);
+        //END MANA
+    } else if ((info = sta_track_get(hapd->iface, mgmt->sa)) != NULL) {
+        taxonomy_hostapd_sta_info_assoc_req(hapd, info, ie, ie_len);
+        //START MANA - JUST CHECK TAXONOMY IN OUTPUT
+        char reply[512] = "";
+        size_t reply_len = 512;
+        retrieve_hostapd_sta_taxonomy(hapd, info, reply, reply_len);
+        wpa_printf(MSG_INFO, "MANA TAXONOMY2 STA '%s'", reply);
+        log_ssid_assoc(hapd, elems.ssid, elems.ssid_len, mgmt->sa);
+        //END MANA
+    } else {
+        wpa_printf(MSG_INFO, "Association request from unknown STA " MACSTR, MAC2STR(mgmt->sa));
+        return;
+    }
+    return;
 }
 
 

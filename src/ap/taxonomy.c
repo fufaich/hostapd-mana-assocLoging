@@ -244,7 +244,7 @@ int retrieve_sta_taxonomy(const struct hostapd_data *hapd,
 	if (!sta->probe_ie_taxonomy || !sta->assoc_ie_taxonomy)
 		return 0;
 
-	ret = os_snprintf(buf, buflen, "wifi4|probe:");
+	ret = os_snprintf(buf, buflen, "wifi4|req:");
 	if (os_snprintf_error(buflen, ret))
 		return 0;
 	pos = buf + ret;
@@ -305,6 +305,13 @@ void taxonomy_hostapd_sta_info_probe_req(const struct hostapd_data *hapd,
 	info->probe_ie_taxonomy = wpabuf_alloc_copy(ie, ie_len);
 }
 
+void taxonomy_hostapd_sta_info_assoc_req(const struct hostapd_data *hapd,
+                                         struct hostapd_sta_info *info,
+                                         const u8 *ie, size_t ie_len)
+{
+    wpabuf_free(info->assoc_ie_taxonomy);
+    info->assoc_ie_taxonomy = wpabuf_alloc_copy(ie, ie_len);
+}
 
 void taxonomy_sta_info_assoc_req(const struct hostapd_data *hapd,
 				 struct sta_info *sta,
